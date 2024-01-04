@@ -2,31 +2,55 @@ const { validationResult } = require("express-validator");
 const Product = require("../models/product");
 const User = require("../models/user");
 const Order = require("../models/order");
-const Cart = require('../models/cart');
+const Cart = require("../models/cart");
 
-const stripe = require("stripe")(process.env.STRIPE_SECRET); 
-
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 exports.getProducts = async (req, res, next) => {
-    const query = Product.find();
-    if (req.query.category) {
-        query.where("category").equals(req.query.category);
-    }
-    if (req.query.subcategory) {
-        query.where("subcategory").equals(req.query.subcategory);
-    }
-    if (req.query.minPrice) {
-        query.where("price").gte(req.query.minPrice);
-    }
-    if (req.query.maxPrice) {
-        query.where("price").lte(req.query.maxPrice);
-    }
-    try {
-        const products = await query.exec();
-        res.status(200).json({ products: products });
-    } catch (error) {
-        next(error);
-    }
+  const queryObject = {};
+  const filters = req.query;
+
+  if (filters.category) queryObject.category = filters.category;
+
+  if (filters.subCategory) queryObject.subCategory = filters.subCategory;
+
+  if (filters.minPrice) {
+    queryObject.price = queryObject.price ?? {};
+    queryObject.price.$gte = parseFloat(filters.minPrice);
+  }
+
+  if (filters.maxPrice) {
+    queryObject.price = queryObject.price ?? {};
+    queryObject.price.$lte = parseFloat(filters.maxPrice);
+  }
+
+  if (filters.color) queryObject.colors = { $in: [filters.color] };
+
+  if (filters.size) queryObject.sizes = { $in: [filters.size] };
+
+  const sortBy = filters.sortBy || "createdAt";
+
+  const page = parseInt(filters.page, 10) || 1;
+  const pageSize = parseInt(filters.pageSize, 10) || 10;
+  const skip = (page - 1) * pageSize;
+
+  try {
+    const totalNumberOfProducts = await Product.countDocuments(queryObject);
+    const numberOfPages = Math.ceil(totalNumberOfProducts / pageSize);
+    const products = await Product.find(queryObject)
+      .sort({ [sortBy]: 1 })
+      .skip(skip)
+      .limit(pageSize);
+
+    res.status(200).json({
+      products,
+      totalNumberOfProducts,
+      numberOfPages,
+      currentPage: page,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 exports.getProductDetails = async (req, res, next) => {
@@ -211,5 +235,3 @@ exports.createOrder = async (session) => {
     await cart.clearCart();
   }
 };
-
-
