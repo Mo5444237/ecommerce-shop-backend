@@ -14,6 +14,8 @@ exports.getProducts = async (req, res, next) => {
 
   if (filters.subCategory) queryObject.subCategory = filters.subCategory;
 
+  if (filters.tags) queryObject.tags = { $in: [filters.tags] };
+
   if (filters.minPrice) {
     queryObject.price = queryObject.price ?? {};
     queryObject.price.$gte = parseFloat(filters.minPrice);
@@ -24,9 +26,15 @@ exports.getProducts = async (req, res, next) => {
     queryObject.price.$lte = parseFloat(filters.maxPrice);
   }
 
-  if (filters.color) queryObject.colors = { $in: [filters.color] };
+  if (filters.color) queryObject["colors.name"] = filters.color;
 
   if (filters.size) queryObject.sizes = { $in: [filters.size] };
+
+  if (filters.searchBy)
+    queryObject.$or = [
+      { name: { $regex: filters.searchBy, $options: "i" } },
+      { description: { $regex: filters.searchBy, $options: "i" } },
+    ];
 
   const sortBy = filters.sortBy || "createdAt";
 
@@ -38,7 +46,7 @@ exports.getProducts = async (req, res, next) => {
     const totalNumberOfProducts = await Product.countDocuments(queryObject);
     const numberOfPages = Math.ceil(totalNumberOfProducts / pageSize);
     const products = await Product.find(queryObject)
-      .sort({ [sortBy]: 1 })
+      .sort(sortBy)
       .skip(skip)
       .limit(pageSize);
 

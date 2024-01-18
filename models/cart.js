@@ -15,7 +15,16 @@ const cartSchema = new Schema({
         required: true,
         ref: "Product",
       },
-      color: { type: String, required: true },
+      color: {
+        name: {
+          type: String,
+          required: true,
+        },
+        code: {
+          type: String,
+          required: true,
+        },
+      },
       size: { type: String, required: true },
       quantity: { type: Number, default: 1 },
     },
@@ -34,7 +43,7 @@ cartSchema.methods.addToCart = function (productId, quantity, color, size) {
   const productIndex = this.items.findIndex((cp) => {
     return (
       cp.productId.toString() === productId.toString() &&
-      cp.color === color &&
+      cp.color.name === color.name &&
       cp.size === size
     );
   });
